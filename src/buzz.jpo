@@ -1,0 +1,5 @@
+LET X BE 5
+PRINT "TEST"
+IF X < 5
+PRINT X
+END
