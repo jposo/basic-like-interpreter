@@ -1,23 +1,27 @@
 use std::fmt;
-use std::collections::HashMap;
+//use std::collections::HashMap;
 
 #[derive(Debug)]
 #[derive(PartialEq)]
-enum TokenType {
+pub enum TokenType {
     Identifier,
-    Keyword,
     Initialize,
     Assign,
     Output,
     Separator,
-    BeginIf,
-    BeginElse,
-    BeginElseIf,
-    Delimiter,
+    If,
+    Else,
+    ElseIf,
+    Function,
+    ReturnValue,
+    ForLoop,
+    WhileLoop,
     EndScope,
     AddOperator,
     MinusOperator,
     MultOperator,
+    ModOperator,
+    ExpOperator,
     DivOperator,
     LessThan,
     LessThanEq,
@@ -30,6 +34,7 @@ enum TokenType {
     NotEqualsOperator,
     LParen,
     RParen,
+    ToOperator,
     Operator,
     TrueLiteral,
     FalseLiteral,
@@ -38,87 +43,77 @@ enum TokenType {
 }
 
 #[derive(Debug)]
-#[derive(PartialEq)]
-enum ValueType {
-    String,
-    Number,
-    Boolean,
-}
-
-struct Identifier<'a> {
-    value_type: ValueType,
-    name: &'a str,
-    value: String,
-}
-
-struct Token<'a> {
-    tk_type: TokenType,
-    lexeme: &'a str,
-}
-
-impl<'a> fmt::Display for Identifier<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Identifier<{:?}, '{:?}' = {}>", self.value_type, self.name, self.value)
-    }
+pub struct Token<'a> {
+    pub tk_type: TokenType,
+    pub lexeme: &'a str,
+    //pub row: usize,
+    //pub col: usize,
 }
 
 
 impl<'a> fmt::Display for Token<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Token<{:?}, '{:?}'>", self.tk_type, self.lexeme)
+        write!(f, "Token<{:?}, {:?}>", self.tk_type, self.lexeme)
+    }
+}
+
+impl TokenType {
+    pub fn token_type(value: &str) -> Option<TokenType> {
+        if value.parse::<f64>().is_ok() {
+            return Some(TokenType::Literal);
+        }
+        match value {
+            "\n" => return Some(TokenType::Newline),
+            "LET" => return Some(TokenType::Initialize),
+            "END" => return Some(TokenType::EndScope),
+            "BE" => return Some(TokenType::Assign),
+            "RETURN" => return Some(TokenType::ReturnValue),
+            "IF" => return Some(TokenType::If),
+            "ELSE" => return Some(TokenType::Else),
+            "ELIF" => return Some(TokenType::ElseIf),
+            "+" => return Some(TokenType::AddOperator),
+            "-" => return Some(TokenType::MinusOperator),
+            "*" => return Some(TokenType::MultOperator),
+            "/" => return Some(TokenType::DivOperator),
+            "%" => return Some(TokenType::ModOperator),
+            "^" => return Some(TokenType::ExpOperator),
+            "(" => return Some(TokenType::LParen),
+            ")" => return Some(TokenType::RParen),
+            "<" => return Some(TokenType::LessThan),
+            "<=" => return Some(TokenType::LessThanEq),
+            ">" => return Some(TokenType::GreaterThan),
+            ">=" => return Some(TokenType::GreaterThanEq),
+            "AND" => return Some(TokenType::AndOperator),
+            "OR" => return Some(TokenType::OrOperator),
+            "NOT" => return Some(TokenType::NotOperator),
+            "EQUALS" => return Some(TokenType::EqualsOperator),
+            "NOTEQUALS" => return Some(TokenType::NotEqualsOperator),
+            "PRINT" => return Some(TokenType::Output),
+            "WHILE" => return Some(TokenType::WhileLoop),
+            "FOR" => return Some(TokenType::ForLoop),
+            "IN" => return Some(TokenType::Operator),
+            "TO" => return Some(TokenType::ToOperator),
+            "FUNCTION" => return Some(TokenType::Function),
+            "," => return Some(TokenType::Separator),
+            "TRUE" => return Some(TokenType::TrueLiteral),
+            "FALSE" => return Some(TokenType::FalseLiteral),
+            _ => return Some(TokenType::Identifier),
+        }
     }
 }
 
 
-fn token_type(value: &str) -> Option<TokenType> {
-    if value.parse::<f64>().is_ok() {
-        return Some(TokenType::Literal);
-    }
-    match value {
-        "\n" => return Some(TokenType::Newline),
-        "LET" => return Some(TokenType::Initialize),
-        "END" => return Some(TokenType::EndScope),
-        "BE" => return Some(TokenType::Assign),
-        "RETURN" => return Some(TokenType::Keyword),
-        "IF" => return Some(TokenType::BeginIf),
-        "ELSE" => return Some(TokenType::BeginElse),
-        "+" => return Some(TokenType::AddOperator),
-        "-" => return Some(TokenType::MinusOperator),
-        "*" => return Some(TokenType::MultOperator),
-        "/" => return Some(TokenType::DivOperator),
-        "(" => return Some(TokenType::LParen),
-        ")" => return Some(TokenType::RParen),
-        "<" => return Some(TokenType::LessThan),
-        "<=" => return Some(TokenType::LessThanEq),
-        ">" => return Some(TokenType::GreaterThan),
-        ">=" => return Some(TokenType::GreaterThanEq),
-        "AND" => return Some(TokenType::AndOperator),
-        "OR" => return Some(TokenType::OrOperator),
-        "NOT" => return Some(TokenType::NotOperator),
-        "EQUALS" => return Some(TokenType::EqualsOperator),
-        "NOTEQUALS" => return Some(TokenType::NotEqualsOperator),
-        "PRINT" => return Some(TokenType::Output),
-        "FOR" => return Some(TokenType::Keyword),
-        "IN" => return Some(TokenType::Operator),
-        "TO" => return Some(TokenType::Operator),
-        "FUNCTION" => return Some(TokenType::Keyword),
-        "," => return Some(TokenType::Separator),
-        "TRUE" => return Some(TokenType::TrueLiteral),
-        "FALSE" => return Some(TokenType::FalseLiteral),
-        _ => return Some(TokenType::Identifier),
-    }
-}
-
-pub fn scan(input_string: &String) {
+pub fn scan(input_string: &String) -> Result<Vec<Token>, String> {
     let mut tokens: Vec<Token> = Vec::new();
     // delimiters seperate keywords, literals, operators, etc..
     let delimiters = vec![' ', ',', '(', ')', '\n', '\t', '\r', '"'];
-    // whitespaces get ignore and skipped unless boolean is true
+    // whitespaces get ignore and skipped unless in_string boolean is true
     let whitespaces = vec![' ', '\t', '\r'];
     // for strings
     let mut in_string = false;
     let mut start_idx: usize = 0;
     let mut end_idx: usize = 0;
+    //let mut col: usize = 0;
     
     while end_idx < input_string.len() {
         let curr = input_string.chars().nth(end_idx).unwrap();
@@ -130,7 +125,7 @@ pub fn scan(input_string: &String) {
                 // add previous token
                 let value = &input_string[start_idx..end_idx];
                 tokens.push(Token {
-                    tk_type: token_type(value).unwrap(),
+                    tk_type: TokenType::token_type(curr_str).unwrap(),
                     lexeme: value,
                 });
             }
@@ -155,7 +150,7 @@ pub fn scan(input_string: &String) {
                 // at least a seperation of 1
                 let value = &input_string[start_idx..end_idx];
                 tokens.push(Token {
-                    tk_type: token_type(value).unwrap(),
+                    tk_type: TokenType::token_type(value).unwrap(),
                     lexeme: value,
                 });
             }
@@ -164,7 +159,7 @@ pub fn scan(input_string: &String) {
             if !whitespaces.contains(&curr) {
                 // current character is not whitespace
                 tokens.push(Token {
-                    tk_type: token_type(curr_str).unwrap(),
+                    tk_type: TokenType::token_type(curr_str).unwrap(),
                     lexeme: curr_str,
                 });
             }
@@ -172,35 +167,17 @@ pub fn scan(input_string: &String) {
         // character is not a delimiter, so we continue until one appears
         end_idx += 1;
     }
-    let result = evaluate(&tokens);
-    if result.is_err() {
-        println!("ERROR: {}", result.err().unwrap());
-    }
+    //for t in &tokens {
+      //  println!("{}", t);
+    //}
+    return Ok(tokens);
+    //let result = evaluate(&tokens);
+    //if result.is_err() {
+        //println!("ERROR: {}", result.err().unwrap());
+    //}
 }
 
-trait IsNumeric {
-    fn is_numeric(self) -> Option<f64>;
-}
-
-impl IsNumeric for &str {
-    fn is_numeric(self) -> Option<f64> {
-        if self.parse::<f64>().is_ok() {
-            return Some(self.parse().unwrap());
-        }
-        None
-    }
-}
-
-fn get_data_type(value: &str) -> Option<ValueType> {
-    if value == "TRUE" || value == "FALSE" {
-        return Some(ValueType::Boolean);
-    }
-    if value.parse::<f64>().is_ok() {
-        return Some(ValueType::Number);
-    }
-    return Some(ValueType::String);
-}
-
+/*
 fn precedence(operator: &str) -> u8 {
     match token_type(operator).unwrap() {
         TokenType::NotOperator => 4,
@@ -449,7 +426,7 @@ fn evaluate(tokens: &Vec<Token>) -> Result<(), String> {
         }
         // if
         // scope initialting keywords, for, if, while
-        else if token.tk_type == TokenType::BeginIf {
+        else if token.tk_type == TokenType::If {
             idx += 1;
             let mut logic_expr: Vec<&str> = Vec::new();
             // get tokens to evaluate
@@ -473,7 +450,7 @@ fn evaluate(tokens: &Vec<Token>) -> Result<(), String> {
             let result = evaluate_logic_infix(&logic_expr);
             // if result is false skip until end or else
             if result == false {
-                while idx < tokens.len() && (tokens[idx].tk_type != TokenType::EndScope || tokens[idx].tk_type != TokenType::BeginElse) {
+                while idx < tokens.len() && (tokens[idx].tk_type != TokenType::EndScope || tokens[idx].tk_type != TokenType::Else) {
                     idx += 1;
                 }
             }
@@ -481,4 +458,4 @@ fn evaluate(tokens: &Vec<Token>) -> Result<(), String> {
         idx += 1;
     }
     Ok(())
-}
+}*/
